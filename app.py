@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, redirect, url_for
 import cv2
 import numpy as np
 from collections import deque
@@ -7,6 +7,8 @@ app = Flask(__name__)
 
 # Load the pre-trained Haar Cascade classifier for face detection
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+skin_tone_history = deque(maxlen=20)  # Store the last 20 skin tone values
 
 def calculate_average_rgb(region):
     """Calculate the average RGB value of the given region."""
@@ -21,8 +23,6 @@ def generate_frames():
     if not camera.isOpened():
         print("Error: Could not open video stream.")
         return
-
-    skin_tone_history = deque(maxlen=50)  # Store the last 20 skin tone values
 
     while True:
         success, frame = camera.read()
@@ -60,6 +60,25 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/skin_analysis')
+def skin_analysis():
+    if len(skin_tone_history) == 0:
+        return redirect(url_for('index'))
+
+    # Calculate the final average skin tone
+    final_avg_skin_tone = np.mean(skin_tone_history, axis=0).astype(int)
+    skin_tone = {
+        'R': final_avg_skin_tone[2],
+        'G': final_avg_skin_tone[1],
+        'B': final_avg_skin_tone[0]
+    }
+
+    # Determine skin type and provide skin care tips (simplified example)
+    skin_type = "Normal"  # Placeholder for actual skin type determination logic
+    skin_care_tips = "Stay hydrated and use sunscreen daily."  # Placeholder for actual tips
+
+    return render_template('skin_analysis.html', skin_tone=skin_tone, skin_type=skin_type, skin_care_tips=skin_care_tips)
 
 if __name__ == '__main__':
     app.run(debug=True)
